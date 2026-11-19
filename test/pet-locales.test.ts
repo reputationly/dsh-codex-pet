@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { BUILTINS, type Pet } from '../src/model.ts';
 import { localizePet } from '../src/pet-locales.ts';
 
-test('九只内置宠物支持全 8 门官方语言，切换语言不改变标识和图集', () => {
+test('内置宠物支持全 8 门官方语言，切换语言不改变标识和图集', () => {
   const supported = ['zh-CN', 'en', 'ja', 'es', 'fr', 'de', 'ru', 'pt'];
   for (const [id, name, description] of BUILTINS) {
     const pet: Pet = { id, name, description, source: 'builtin', version: 2, url: '/asset/' + id };

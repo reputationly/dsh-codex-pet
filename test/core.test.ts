@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer, request as httpRequest, type IncomingMessage } from 'node:http';
-import { selectActivity, lookCell, normalizeConfig } from '../src/model.ts';
+import { selectActivity, lookCell, normalizeConfig, BUILTINS } from '../src/model.ts';
 import { PetLibrary, imageVersion, confined } from '../src/library.ts';
 import { createHost, trustedWrite } from '../src/index.ts';
 test('等待处理持续优先于正在运行和完成状态', () => {
@@ -23,14 +23,14 @@ test('v2注视四个正方向与死区', () => {
 test('拒绝越界、非有限大小和损坏位置', () => {
   for (const value of [{ size: NaN }, { size: 999 }, { visible: 'false' }, { position: { x: -1, y: 0 } }, { selected: '../secret' }]) assert.throws(() => normalizeConfig(value));
 });
-test('原版全部九只图集通过几何检查', async () => {
+test('随包内置图集通过几何检查', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dcp-'));
-  try { const library = new PetLibrary(resolve('assets/codex'), root, root); await library.init(); assert.equal(library.pets.length, 9); assert.equal(library.warnings.length, 0); for (const pet of library.pets) assert.ok([1, 2].includes(imageVersion(await library.asset(pet.id)))); }
+  try { const library = new PetLibrary(resolve('assets/codex'), root, root); await library.init(); assert.equal(library.pets.length, BUILTINS.length); assert.equal(library.warnings.length, 0); for (const pet of library.pets) assert.ok([1, 2].includes(imageVersion(await library.asset(pet.id)))); }
   finally { await rm(root, { recursive: true, force: true }); }
 });
 test('配置并发更新不丢字段，重启恢复最后结果', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dcp-'));
-  try { const library = new PetLibrary(resolve('assets/codex'), root, root); await library.init(); await Promise.all([library.update({ selected: 'hoots' }), library.update({ size: 160 }), library.update({ visible: false })]); const another = new PetLibrary(resolve('assets/codex'), root, root); await another.init(); assert.equal(another.config.selected, 'hoots'); assert.equal(another.config.size, 160); assert.equal(another.config.visible, false); }
+  try { await mkdir(join(root, 'pets', 'second'), { recursive: true }); await copyFile(resolve('assets/codex/suanli/spritesheet.webp'), join(root, 'pets', 'second', 'spritesheet.webp')); await writeFile(join(root, 'pets', 'second', 'pet.json'), JSON.stringify({ displayName: 'Second', spritesheetPath: 'spritesheet.webp' })); const library = new PetLibrary(resolve('assets/codex'), root, root); await library.init(); await Promise.all([library.update({ selected: 'custom:second' }), library.update({ size: 160 }), library.update({ visible: false })]); const another = new PetLibrary(resolve('assets/codex'), root, root); await another.init(); assert.equal(another.config.selected, 'custom:second'); assert.equal(another.config.size, 160); assert.equal(another.config.visible, false); }
   finally { await rm(root, { recursive: true, force: true }); }
 });
 test('自定义宠物符号链接不能越过注册目录', async () => {

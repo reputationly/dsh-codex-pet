@@ -12,3 +12,15 @@ original artwork of this project. This project's Apache License does not
 grant new rights to that third-party artwork or its trademarks. Those rights
 remain with their respective owners. This is a community-maintained project,
 not an official OpenAI or DeepSeek product.
+
+---
+reputationly/dsh-codex-pet（suanli 分支）的改动：
+本分支删除了上游 assets/codex 下来源于 OpenAI Codex 的全部宠物图集，
+内置宠物只保留蒜狸（assets/codex/suanli/spritesheet.webp）。
+蒜狸形象及该图集归蒜狸小助手项目所有，不属于 Apache License 2.0 的授权范围。
+
+Changes in the reputationly/dsh-codex-pet "suanli" branch:
+All pet artwork that originated from OpenAI Codex was removed from assets/codex.
+The only built-in pet is Suanli (assets/codex/suanli/spritesheet.webp); the Suanli
+character and this spritesheet belong to the Suanli Assistant project and are not
+licensed under the Apache License, Version 2.0.

@@ -1,15 +1,7 @@
 /** 宠物公开数据与图集协议，不依赖宿主或第三方宠物实现。 */
 export const BASE = "/dsh-codex-pet";
 export const BUILTINS = [
-  ["codex", "Codex", "The original Codex companion."],
-  ["dewey", "Dewey", "A calm companion for focused workspace days."],
-  ["fireball", "Fireball", "Hot path energy for fast iteration."],
-  ["hoots", "Hoots", "A sharp-eyed owl for polished work in a blink."],
-  ["rocky", "Rocky", "A steady rock when the diff gets large."],
-  ["seedy", "Seedy", "Small green shoots for new ideas."],
-  ["stacky", "Stacky", "A balanced stack for deep work."],
-  ["bsod", "BSOD", "A tiny blue-screen gremlin."],
-  ["null-signal", "Null Signal", "Quiet signal from the void."],
+  ["suanli", "Suanli", "A garlic cat that keeps you company while you work."],
 ] as const;
 export type Pose =
   | "idle"
@@ -57,7 +49,7 @@ export interface Config {
   position: { x: number; y: number } | null;
 }
 export const DEFAULT_CONFIG: Config = {
-  selected: "codex",
+  selected: "suanli",
   visible: true,
   size: 120,
   position: null,

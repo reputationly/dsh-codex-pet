@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PetLibrary } from '../src/library.ts';
 import { createPetSession } from '../src/creation.ts';
-test('没有 Codex 目录仍加载九只宠物与随包 Skill，数据仅位于 DSH', async () => {
+test('没有 Codex 目录仍加载内置宠物与随包 Skill，数据仅位于 DSH', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-pets-'));
   try {
     const library = new PetLibrary(resolve('assets/codex'), root);
     await library.init();
-    assert.equal(library.pets.length, 9);
+    assert.equal(library.pets.length, 1);
     assert.equal(library.customPath, join(root, 'pets'));
     assert.equal(library.snapshot().skillAvailable, true);
     assert.ok(!library.skillPath.includes('.codex'));
