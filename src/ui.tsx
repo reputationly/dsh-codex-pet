@@ -1,6 +1,5 @@
 import { createLibraryStore } from "./library-store.ts";
 import { resolveTaskTitle, translator } from "./ui-locales.ts";
-import { ProjectHeader } from "./project-header.tsx";
 import { localizePet, type PetLocaleStore } from "./pet-locales.ts";
 import {
   NotificationTray,
@@ -18,7 +17,7 @@ import {
   useMemo,
 } from "react";
 import { ReloadIcon, ArrowTopRightIcon, PlusIcon } from "@radix-ui/react-icons";
-import { Button } from "@deepseek-ai/dsh-client-ui-primitives";
+import { Button, Switch } from "@deepseek-ai/dsh-client-ui-primitives";
 import {
   ANIMATIONS,
   BASE,
@@ -165,7 +164,7 @@ export function Settings({
     if (draft) draft.current = value;
     setDescription(value);
   };
-  const [size, setSize] = useState(library?.config.size ?? 120);
+  const [size, setSize] = useState(library?.config.size ?? 60);
   const dialog = useRef<HTMLDialogElement>(null);
   const createTitleId = useId();
   const [creationError, setCreationError] = useState("");
@@ -189,7 +188,6 @@ export function Settings({
   return (
     <div className="dcp dcp-page">
       <style>{styles}</style>
-      <ProjectHeader locale={locale} />
       <header className="dcp-head">
         <div className="dcp-actions">
           <Button
@@ -214,19 +212,6 @@ export function Settings({
             icon={<PlusIcon />}
             onClick={() => setShowCreate(true)}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!library || busy}
-            onClick={() =>
-              void act(() =>
-                controller.update({ visible: !library?.config.visible }),
-              )
-            }
-          >
-            {library?.config.visible === false ? t("显示宠物") : t("收起宠物")}
-          </Button>
         </div>
       </header>
       {error && (
@@ -308,6 +293,15 @@ export function Settings({
       <section className="dcp-appearance">
         <h2>{t("外观")}</h2>
         <div className="dcp-card dcp-size">
+          <label>{t("显示宠物")}</label>
+          <Switch
+            label={t("显示宠物")}
+            checked={library?.config.visible !== false}
+            disabled={!library || busy}
+            onChange={(visible) => void act(() => controller.update({ visible }))}
+          />
+        </div>
+        <div className="dcp-card dcp-size">
           <label htmlFor="dcp-size">
             {t("宠物大小")}
             <small>{t("调整宠物大小")}</small>
@@ -316,7 +310,7 @@ export function Settings({
             id="dcp-size"
             aria-label={t("宠物大小")}
             type="range"
-            min="64"
+            min="48"
             max="224"
             step="4"
             value={size}

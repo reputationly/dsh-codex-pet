@@ -29,7 +29,8 @@ if (!smokeRoot)
       // 宿主 Modal 的最小替身：只保留 role/label/class 与子节点，供冒烟断言选择器使用。
       const Modal=function Modal({open,onClose,title,closeLabel,children,footer,className}){return open?React.createElement('div',{className,role:'dialog','aria-label':title,'data-stub-modal':''},React.createElement('h2',null,title),React.createElement('button',{type:'button','aria-label':closeLabel??'Close','data-stub-close':'',onClick:onClose}),children,footer):null;};
       const IconListPenOutlineMedium=function IconListPenOutlineMedium(){return React.createElement('svg');};
-      window.__ModuleLoader__={load({factory}){window.petPlugin=factory(id=>id==='react'?React:id==='react/jsx-runtime'?jsx:id==='react-dom'?ReactDOM:id==='@deepseek-ai/dsh-client-ui-primitives'?{Button,Modal,IconListPenOutlineMedium}:{createRoot});}};
+      const Switch=function Switch({checked,onChange,label,disabled}){return React.createElement('button',{type:'button',role:'switch','aria-checked':checked,'aria-label':label,disabled,onClick:()=>onChange(!checked)});};
+      window.__ModuleLoader__={load({factory}){window.petPlugin=factory(id=>id==='react'?React:id==='react/jsx-runtime'?jsx:id==='react-dom'?ReactDOM:id==='@deepseek-ai/dsh-client-ui-primitives'?{Button,Modal,Switch,IconListPenOutlineMedium}:{createRoot});}};
       window.renderPet=Component=>createRoot(document.getElementById('root')).render(React.createElement(Component));`,
         resolveDir: process.cwd(),
       },
@@ -196,7 +197,7 @@ if (!smokeRoot)
     );
     assert.equal(await page.evaluate(`petSection.label()`), "Pets");
     await waitFor(
-      `document.querySelector('.dcp-project-title')?.textContent==='Pets'`,
+      `!document.querySelector('.dcp-project-title')&&!!document.querySelector('.dcp-page [role=switch]')`,
     );
     assert.equal(
       await page.evaluate(`document.querySelector('.dcp-update-check')`),
@@ -262,18 +263,10 @@ if (!smokeRoot)
       await page.evaluate(`document.querySelector('.dcp-version')`),
       null,
     );
-    assert.ok(
-      await page.evaluate(
-        `!!document.querySelector('.dcp-project-links button[aria-label="GitHub"]')`,
-      ),
-    );
-    // 设置皮肤会改写 [data-shortcut-modal="settings"] nav button（32px 全宽胶囊），
-    // 链接容器必须保持非 nav 元素，避免头部链接按钮被宿主皮肤破坏样式。
+    // 蒜狸版设置页不展示项目标题栏与外链。
     assert.equal(
-      await page.evaluate(
-        `document.querySelector('.dcp-project-links').tagName`,
-      ),
-      "DIV",
+      await page.evaluate(`document.querySelector('.dcp-project-card')`),
+      null,
     );
     assert.equal(
       await page.evaluate(

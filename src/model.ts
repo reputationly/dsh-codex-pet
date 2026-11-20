@@ -51,7 +51,7 @@ export interface Config {
 export const DEFAULT_CONFIG: Config = {
   selected: "suanli",
   visible: true,
-  size: 120,
+  size: 60,
   position: null,
 };
 export interface Activity {
@@ -93,9 +93,9 @@ export function normalizeConfig(
     throw new Error("显示状态无效");
   if (
     data.size !== undefined &&
-    (!Number.isFinite(data.size) || data.size < 64 || data.size > 224)
+    (!Number.isFinite(data.size) || data.size < 48 || data.size > 224)
   )
-    throw new Error("宠物大小须为 64–224");
+    throw new Error("宠物大小须为 48–224");
   if (
     data.position !== undefined &&
     data.position !== null &&
