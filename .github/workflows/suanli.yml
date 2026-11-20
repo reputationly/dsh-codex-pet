@@ -1,6 +1,6 @@
 name: 蒜狸版检查与发行
 
-# suanli 是蒜狸版源码分支；把它合入 release 分支才会发行：打包并提交到 releases 分支。
+# suanli 是蒜狸版源码分支；把它合入 release 分支才会发行：打包并提交到 dist 分支。
 on:
   push:
     branches: [suanli, release]
@@ -42,7 +42,7 @@ jobs:
           retention-days: 7
 
   publish:
-    name: 发行到 releases 分支
+    name: 发行到 dist 分支
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
@@ -53,8 +53,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/checkout@v6
         with:
-          ref: releases
-          path: .releases
+          ref: dist
+          path: .dist
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -64,10 +64,10 @@ jobs:
           path: ${{ runner.temp }}/pack
       - id: stage
         name: 登记发行包
-        run: node scripts/publish-suanli-release.mjs --pack-dir "$RUNNER_TEMP/pack" --releases-dir .releases --source "$GITHUB_SHA"
+        run: node scripts/publish-suanli-release.mjs --pack-dir "$RUNNER_TEMP/pack" --dist-dir .dist --source "$GITHUB_SHA"
       - name: 提交并推送
         if: steps.stage.outputs.published == 'true'
-        working-directory: .releases
+        working-directory: .dist
         env:
           VERSION: ${{ steps.stage.outputs.version }}
           FILE: ${{ steps.stage.outputs.file }}
@@ -77,7 +77,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "发行包 $VERSION"
-          git push origin HEAD:releases
+          git push origin HEAD:dist
           {
             echo "### 已发行 $VERSION"
             echo "- 依赖地址：\`https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$(git rev-parse HEAD)/$FILE\`"
