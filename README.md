@@ -1,6 +1,6 @@
 # 蒜狸版 dsh-codex-pet 发行包
 
-本分支只存放 `suanli` 分支用 `npm pack` 打出的发行包，供 deepseek-harness 按提交号固定的 URL 依赖。
+本分支只存放发行包，供 deepseek-harness 按提交号固定的 URL 依赖。把 `suanli` 合入 `release` 分支后由 CI 打包并提交到这里，请不要手工修改。
 
 | 文件 | 源码提交 |
 |---|---|
