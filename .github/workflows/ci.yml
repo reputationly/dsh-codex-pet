@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # 蒜狸版分支由 suanli.yml 检查；这里的端到端矩阵依赖上游的 9 只内置宠物。
+    branches: [main]
   workflow_dispatch:
     inputs:
       full:

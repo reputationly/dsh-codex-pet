@@ -1,0 +1,90 @@
+name: 蒜狸版检查与发行
+
+# suanli 是蒜狸版源码分支；把它合入 release 分支才会发行：打包并提交到 releases 分支。
+on:
+  push:
+    branches: [suanli, release]
+  pull_request:
+    branches: [suanli, release]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: suanli-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/release' }}
+
+jobs:
+  check:
+    name: 检查并打包
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - run: npm test
+      - run: npm run smoke
+      - name: 打包并校验内置宠物与 Skill
+        run: |
+          mkdir -p "$RUNNER_TEMP/pack"
+          npm pack --pack-destination "$RUNNER_TEMP/pack"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: ${{ runner.temp }}/pack/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: 发行到 releases 分支
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          ref: releases
+          path: .releases
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: ${{ runner.temp }}/pack
+      - id: stage
+        name: 登记发行包
+        run: node scripts/publish-suanli-release.mjs --pack-dir "$RUNNER_TEMP/pack" --releases-dir .releases --source "$GITHUB_SHA"
+      - name: 提交并推送
+        if: steps.stage.outputs.published == 'true'
+        working-directory: .releases
+        env:
+          VERSION: ${{ steps.stage.outputs.version }}
+          FILE: ${{ steps.stage.outputs.file }}
+          INTEGRITY: ${{ steps.stage.outputs.integrity }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "发行包 $VERSION"
+          git push origin HEAD:releases
+          {
+            echo "### 已发行 $VERSION"
+            echo "- 依赖地址：\`https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$(git rev-parse HEAD)/$FILE\`"
+            echo "- integrity：\`$INTEGRITY\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: 说明未发行的原因
+        if: steps.stage.outputs.published != 'true'
+        env:
+          VERSION: ${{ steps.stage.outputs.version }}
+        run: echo "版本 $VERSION 已发行且内容未变，这次没有发行新包。要发行请先修改 package.json 的 version。" >> "$GITHUB_STEP_SUMMARY"

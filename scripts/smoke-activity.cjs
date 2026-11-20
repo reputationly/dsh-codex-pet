@@ -182,15 +182,15 @@ if (!smokeRoot)
     await page.evaluate(`window.dispatchEvent(new Event('dcp-open-settings'))`);
     await waitFor(`!!document.querySelector('.dcp-settings-modal')`);
     await waitFor(
-      `document.querySelector('.dcp-page')?.textContent.includes('露露')`,
+      `document.querySelector('.dcp-page')?.textContent.includes('蒜狸')`,
     );
     await page.evaluate(`petLocale.set({active:'en'})`);
     await waitFor(
-      `document.querySelector('.dcp-page')?.textContent.includes('A calm companion for focused workspace days.')`,
+      `document.querySelector('.dcp-page')?.textContent.includes('A garlic cat that keeps you company while you work.')`,
     );
     assert.equal(
       await page.evaluate(
-        `document.querySelector('.dcp-page').textContent.includes('露露')`,
+        `document.querySelector('.dcp-page').textContent.includes('蒜狸')`,
       ),
       false,
     );
@@ -250,7 +250,7 @@ if (!smokeRoot)
     );
     await page.evaluate(`petLocale.set({active:'zh-CN'})`);
     await waitFor(
-      `document.querySelector('.dcp-page')?.textContent.includes('露露')`,
+      `document.querySelector('.dcp-page')?.textContent.includes('蒜狸')`,
     );
     await page.setViewportSize({ width: 1000, height: 1100 });
     await new Promise((resolve) => setTimeout(resolve, 250));
