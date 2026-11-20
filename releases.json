@@ -3,5 +3,11 @@
     "file": "michengai-dsh-codex-pet-1.1.1-suanli.2.tgz",
     "source": "53cecd3f1ca3d7d3256c8ecf399c13afa768e042",
     "integrity": "sha512-B6/uLlwmG6+EcVL2XWKgEscknYkQgdOVOlQy1sd6WR2DWncEfG5fAE9UO0EH8CuOg4+rYhndlcwjZQGjt01uJQ=="
+  },
+  "1.1.1-suanli.3": {
+    "file": "michengai-dsh-codex-pet-1.1.1-suanli.3.tgz",
+    "source": "e7b1548ca74e944b90542d7201a28af533ada3a1",
+    "integrity": "sha512-9+PZNTRQeLjCAitq+J2DfzcuR6J3tHted+OQnC498/7qFBMVTRXSXDT/jMb7C8j/pH1c4QHvJobT3/xGO2uJjA==",
+    "content": "sha256-36b72a484013b98cd8c74b356f00dbda862e051d0ccf340ff83a117bfca0c1a8"
   }
 }
