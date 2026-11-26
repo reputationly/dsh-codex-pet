@@ -1,18 +1,23 @@
 name: 蒜狸版检查与发行
 
-# suanli 是蒜狸版源码分支；把它合入 release 分支才会发行：打包并提交到 dist 分支。
+# suanli 是蒜狸版源码分支。它有代码改动（只改 Markdown 不算）就检查、打包并提交到 dist 分支，
+# 版本号由 scripts/publish-suanli-release.mjs 决定；然后用 HOST_REPO_TOKEN 给
+# reputationly/deepseek-harness 开或更新 bot/dsh-codex-pet 升级 PR 并开启自动合并，
+# 宿主 CI 通过就合进 master。没配这个 secret 时只发布到 dist。
 on:
   push:
-    branches: [suanli, release]
+    branches: [suanli]
+    paths-ignore:
+      - '**/*.md'
   pull_request:
-    branches: [suanli, release]
+    branches: [suanli]
 
 permissions:
   contents: read
 
 concurrency:
   group: suanli-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -44,9 +49,9 @@ jobs:
   publish:
     name: 发行到 dist 分支
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/suanli'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -58,33 +63,114 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - uses: actions/download-artifact@v4
-        with:
-          name: package
-          path: ${{ runner.temp }}/pack
+          cache: npm
+      - run: npm ci
+      # 重跑旧的 run 时 suanli 已经变了：只有 suanli 是本提交之后只改了 Markdown（含移入/移出的
+      # 原路径）才照常发布；否则由更新的 run 发布，旧代码不能以更高的构建号盖过新包。
       - id: stage
-        name: 登记发行包
-        run: node scripts/publish-suanli-release.mjs --pack-dir "$RUNNER_TEMP/pack" --dist-dir .dist --source "$GITHUB_SHA"
-      - name: 提交并推送
-        if: steps.stage.outputs.published == 'true'
+        name: 打包并登记发行包
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head=$(git ls-remote origin refs/heads/suanli | cut -f1)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            compare=$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...$head" --jq '.status, (.files[] | .filename, (.previous_filename // empty))')
+            status=$(printf '%s\n' "$compare" | sed -n 1p)
+            newer=$(printf '%s\n' "$compare" | sed 1d | grep -Ev '\.md$' || true)
+            if [ "$status" != ahead ] || [ -n "$newer" ]; then
+              echo "reason=suanli 已前进到 $head（$status），由更新的 run 发行" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          node scripts/publish-suanli-release.mjs --pack-dir "$RUNNER_TEMP/pack" --dist-dir .dist --source "$GITHUB_SHA"
+      # 内容没变时也给出 dist 最新提交上的地址：上次推完 dist 但宿主 PR 没开成功时，重跑能补上。
+      - id: dist
+        name: 提交并推送
+        if: steps.stage.outputs.version != ''
         working-directory: .dist
         env:
+          PUBLISHED: ${{ steps.stage.outputs.published }}
           VERSION: ${{ steps.stage.outputs.version }}
           FILE: ${{ steps.stage.outputs.file }}
           INTEGRITY: ${{ steps.stage.outputs.integrity }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "发行包 $VERSION"
-          git push origin HEAD:dist
-          {
-            echo "### 已发行 $VERSION"
-            echo "- 依赖地址：\`https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$(git rev-parse HEAD)/$FILE\`"
-            echo "- integrity：\`$INTEGRITY\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          if [ "$PUBLISHED" = true ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "发行包 $VERSION"
+            git push origin HEAD:dist
+          fi
+          url="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$(git rev-parse HEAD)/$FILE"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISHED" = true ]; then
+            {
+              echo "### 已发行 $VERSION"
+              echo "- 依赖地址：\`$url\`"
+              echo "- integrity：\`$INTEGRITY\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: 给宿主开升级 PR
+        if: steps.stage.outputs.version != ''
+        env:
+          HOST_TOKEN: ${{ secrets.HOST_REPO_TOKEN }}
+          HOST_REPO: reputationly/deepseek-harness
+          BRANCH: bot/dsh-codex-pet
+          PACKAGE: ${{ steps.stage.outputs.package }}
+          URL: ${{ steps.dist.outputs.url }}
+          VERSION: ${{ steps.stage.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HOST_TOKEN" ]; then
+            echo "::warning::没有配置 HOST_REPO_TOKEN；$VERSION 已发行到 dist，但没有升级宿主"
+            exit 0
+          fi
+          host=$(mktemp -d)
+          git clone -q --depth 1 "https://x-access-token:${HOST_TOKEN}@github.com/${HOST_REPO}.git" "$host"
+          cd "$host"
+          git checkout -q -B "$BRANCH"
+          node -e '
+            const fs = require("fs")
+            const file = "apps/cli/package.json"
+            const manifest = JSON.parse(fs.readFileSync(file, "utf8"))
+            const [name, url] = process.argv.slice(1)
+            if (!(name in manifest.dependencies)) throw new Error(`${file} does not depend on ${name}`)
+            manifest.dependencies[name] = url
+            fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n")
+          ' "$PACKAGE" "$URL"
+          npx --yes pnpm@11.28.5 install --lockfile-only --ignore-scripts
+          if git diff --quiet; then
+            echo "宿主已经依赖 $URL"
+            exit 0
+          fi
+          title="宠物插件升级到 $VERSION"
+          # 升级分支已经是这次的改动时不重推，免得宿主 CI 重跑；PR 和自动合并照样补齐。
+          if git fetch -q --depth 1 origin "refs/heads/$BRANCH" 2>/dev/null \
+            && git diff --quiet FETCH_HEAD -- apps/cli/package.json pnpm-lock.yaml; then
+            echo "$BRANCH 已经是这次升级，不重推"
+          else
+            git add apps/cli/package.json pnpm-lock.yaml
+            git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+              commit -q -m "$title" -m "插件提交 ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+            git push -q -f origin "HEAD:refs/heads/$BRANCH"
+          fi
+          body="由 ${GITHUB_REPOSITORY} 的发行工作流自动生成：插件 \`suanli\` 的 ${GITHUB_SHA} 打包为 \`$VERSION\`，依赖地址按 \`dist\` 提交号固定。宿主 CI 通过后自动合并。
+
+          运行记录：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          export GH_TOKEN="$HOST_TOKEN"
+          number=$(gh pr list -R "$HOST_REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            gh pr create -R "$HOST_REPO" --base master --head "$BRANCH" --title "$title" --body "$body"
+          else
+            gh pr edit "$number" -R "$HOST_REPO" --title "$title" --body "$body"
+          fi
+          gh pr merge "$BRANCH" -R "$HOST_REPO" --auto --merge \
+            || echo "::warning::无法在 $HOST_REPO 开启自动合并；请在其设置里打开 Allow auto-merge，或手动合并"
       - name: 说明未发行的原因
         if: steps.stage.outputs.published != 'true'
         env:
           VERSION: ${{ steps.stage.outputs.version }}
-        run: echo "版本 $VERSION 已发行且内容未变，这次没有发行新包。要发行请先修改 package.json 的 version。" >> "$GITHUB_STEP_SUMMARY"
+          REASON: ${{ steps.stage.outputs.reason }}
+        run: echo "这次没有发行新包：${REASON:-版本 $VERSION 已发行且内容未变}。" >> "$GITHUB_STEP_SUMMARY"
