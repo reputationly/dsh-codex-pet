@@ -145,6 +145,11 @@ jobs:
             echo "宿主已经依赖 $URL"
             exit 0
           fi
+          if git fetch -q --depth 1 origin "refs/heads/$BRANCH" 2>/dev/null \
+            && git diff --quiet FETCH_HEAD -- apps/cli/package.json pnpm-lock.yaml; then
+            echo "$BRANCH 已经是这次升级，不重推，免得重跑宿主 CI"
+            exit 0
+          fi
           git add apps/cli/package.json pnpm-lock.yaml
           title="宠物插件升级到 $VERSION"
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
