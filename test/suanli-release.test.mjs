@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { gzipSync } from 'node:zlib';
-import { stageRelease, tarballName } from '../scripts/publish-suanli-release.mjs';
+import { planVersion, stageRelease, tarballName } from '../scripts/publish-suanli-release.mjs';
 
 const pkg = { name: '@michengai/dsh-codex-pet', version: '1.2.0-suanli.1' };
 const file = 'michengai-dsh-codex-pet-1.2.0-suanli.1.tgz';
@@ -65,4 +65,14 @@ test('未登记的同名发行包会被拒绝', t => {
   const { packDir, distDir } = scratch(t, 'package bytes');
   writeFileSync(join(distDir, file), 'stray');
   assert.throws(() => stageRelease(pkg, packDir, distDir, 'abc123'), /没有登记/);
+});
+
+test('基础版本没发行过时原样使用', () => {
+  assert.deepEqual(planVersion({ '1.1.1-suanli.3': {} }, '1.2.0-suanli.1'), { next: '1.2.0-suanli.1' });
+});
+
+test('基础版本发行过时接着最新一次构建编号', () => {
+  assert.deepEqual(planVersion({ '1.1.1-suanli.3': {} }, '1.1.1-suanli.3'), { latest: '1.1.1-suanli.3', next: '1.1.1-suanli.3.1' });
+  const manifest = { '1.1.1-suanli.3': {}, '1.1.1-suanli.3.1': {}, '1.1.1-suanli.3.2': {}, '1.1.1-suanli.30.1': {}, '1.1.1-suanli.3.x': {} };
+  assert.deepEqual(planVersion(manifest, '1.1.1-suanli.3'), { latest: '1.1.1-suanli.3.2', next: '1.1.1-suanli.3.3' });
 });
