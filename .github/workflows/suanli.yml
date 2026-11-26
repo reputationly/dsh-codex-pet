@@ -145,16 +145,17 @@ jobs:
             echo "宿主已经依赖 $URL"
             exit 0
           fi
+          title="宠物插件升级到 $VERSION"
+          # 升级分支已经是这次的改动时不重推，免得宿主 CI 重跑；PR 和自动合并照样补齐。
           if git fetch -q --depth 1 origin "refs/heads/$BRANCH" 2>/dev/null \
             && git diff --quiet FETCH_HEAD -- apps/cli/package.json pnpm-lock.yaml; then
-            echo "$BRANCH 已经是这次升级，不重推，免得重跑宿主 CI"
-            exit 0
+            echo "$BRANCH 已经是这次升级，不重推"
+          else
+            git add apps/cli/package.json pnpm-lock.yaml
+            git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+              commit -q -m "$title" -m "插件提交 ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+            git push -q -f origin "HEAD:refs/heads/$BRANCH"
           fi
-          git add apps/cli/package.json pnpm-lock.yaml
-          title="宠物插件升级到 $VERSION"
-          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
-            commit -q -m "$title" -m "插件提交 ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-          git push -q -f origin "HEAD:refs/heads/$BRANCH"
           body="由 ${GITHUB_REPOSITORY} 的发行工作流自动生成：插件 \`suanli\` 的 ${GITHUB_SHA} 打包为 \`$VERSION\`，依赖地址按 \`dist\` 提交号固定。宿主 CI 通过后自动合并。
 
           运行记录：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
