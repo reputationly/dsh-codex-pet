@@ -84,29 +84,36 @@ jobs:
             fi
           fi
           node scripts/publish-suanli-release.mjs --pack-dir "$RUNNER_TEMP/pack" --dist-dir .dist --source "$GITHUB_SHA"
+      # 内容没变时也给出 dist 最新提交上的地址：上次推完 dist 但宿主 PR 没开成功时，重跑能补上。
       - id: dist
         name: 提交并推送
-        if: steps.stage.outputs.published == 'true'
+        if: steps.stage.outputs.version != ''
         working-directory: .dist
         env:
+          PUBLISHED: ${{ steps.stage.outputs.published }}
           VERSION: ${{ steps.stage.outputs.version }}
           FILE: ${{ steps.stage.outputs.file }}
           INTEGRITY: ${{ steps.stage.outputs.integrity }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "发行包 $VERSION"
-          git push origin HEAD:dist
+          set -euo pipefail
+          if [ "$PUBLISHED" = true ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "发行包 $VERSION"
+            git push origin HEAD:dist
+          fi
           url="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$(git rev-parse HEAD)/$FILE"
           echo "url=$url" >> "$GITHUB_OUTPUT"
-          {
-            echo "### 已发行 $VERSION"
-            echo "- 依赖地址：\`$url\`"
-            echo "- integrity：\`$INTEGRITY\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PUBLISHED" = true ]; then
+            {
+              echo "### 已发行 $VERSION"
+              echo "- 依赖地址：\`$url\`"
+              echo "- integrity：\`$INTEGRITY\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: 给宿主开升级 PR
-        if: steps.stage.outputs.published == 'true'
+        if: steps.stage.outputs.version != ''
         env:
           HOST_TOKEN: ${{ secrets.HOST_REPO_TOKEN }}
           HOST_REPO: reputationly/deepseek-harness
@@ -134,6 +141,10 @@ jobs:
             fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n")
           ' "$PACKAGE" "$URL"
           npx --yes pnpm@11.28.5 install --lockfile-only --ignore-scripts
+          if git diff --quiet; then
+            echo "宿主已经依赖 $URL"
+            exit 0
+          fi
           git add apps/cli/package.json pnpm-lock.yaml
           title="宠物插件升级到 $VERSION"
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
